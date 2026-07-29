@@ -61,3 +61,34 @@ pip install -r requirements.txt
 - lxml 6.0.1
 - Joblib 1.5.2
 - tqdm 4.67.1
+```
+## Project Structure
+
+```
+Hybrid_Phishing_Email_Detection_IEEE_internship/
+│
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── external/
+├── src/
+├── models/
+├── notebooks/
+├── evaluation/
+├── tests/
+├── docs/
+├── config.py
+├── requirements.txt
+└── README.md
+```
+
+### Directory Overview
+
+- **data/** – Stores raw, processed, and external datasets.
+- **src/** – Contains the source code for preprocessing, model training, prediction, and utilities.
+- **models/** – Stores trained machine learning models and tokenizers.
+- **notebooks/** – Used for experimentation and exploratory data analysis.
+- **evaluation/** – Stores evaluation metrics, confusion matrices, and plots.
+- **tests/** – Contains unit tests.
+- **docs/** – Project documentation and architecture diagrams.
+- **config.py** – Central configuration file for model parameters and project settings.

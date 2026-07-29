@@ -1,0 +1,19 @@
+# config.py
+
+PROJECT_NAME = "Hybrid Phishing Email Detection"
+
+RANDOM_STATE = 42
+
+TEST_SIZE = 0.2
+
+MAX_VOCAB_SIZE = 10000
+
+MAX_SEQUENCE_LENGTH = 300
+
+EMBEDDING_DIM = 128
+
+LSTM_UNITS = 128
+
+BATCH_SIZE = 32
+
+EPOCHS = 10
