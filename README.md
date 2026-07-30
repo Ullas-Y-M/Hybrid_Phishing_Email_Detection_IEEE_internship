@@ -147,3 +147,23 @@ data/processed/phishing_dataset.csv
 | Legitimate | 3000 |
 | Phishing | 3000 |
 | **Total** | **6000** |
+```
+## Phase 3 – Tokenization & Data Preparation
+
+The processed dataset is converted into numerical sequences suitable for the LSTM model.
+
+### Steps Performed
+
+- Loaded the processed phishing dataset.
+- Split the dataset into:
+  - Training Set (80%)
+  - Testing Set (20%)
+- Created a TensorFlow tokenizer.
+- Built a vocabulary of the most frequent words.
+- Converted text into integer sequences.
+- Applied sequence padding with a maximum length of 300.
+- Saved the trained tokenizer.
+- Saved the processed NumPy arrays for model training.
+
+### Generated Files
+```
