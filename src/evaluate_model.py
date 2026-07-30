@@ -22,6 +22,10 @@ from config import (
     MODELS_DIR,
     MODEL_NAME,
     EVALUATION_DIR,
+    BATCH_SIZE,
+    EPOCHS,
+    MAX_VOCAB_SIZE,
+    MAX_SEQUENCE_LENGTH,
 )
 
 from src.utils import (
@@ -32,10 +36,14 @@ from src.utils import (
 
 def load_data():
     """
-    Load the trained LSTM model and test dataset.
+    Load the trained LSTM model and dataset.
     """
 
-    print("Loading model and test dataset...")
+    print("Loading model and dataset...")
+
+    X_train = np.load(
+        os.path.join(PROCESSED_DATA_DIR, "X_train.npy")
+    )
 
     X_test = np.load(
         os.path.join(PROCESSED_DATA_DIR, "X_test.npy")
@@ -49,28 +57,58 @@ def load_data():
         os.path.join(MODELS_DIR, MODEL_NAME)
     )
 
-    return model, X_test, y_test
+    return model, X_train, X_test, y_test
 
 
-def evaluate_model(model, X_test, y_test):
+def evaluate_model(model, X_train, X_test, y_test):
     """
-    Evaluate the LSTM model and generate evaluation reports.
+    Evaluate the trained LSTM model and save results.
     """
 
     print("\nRunning predictions...")
 
-    probabilities = model.predict(X_test, verbose=0)
+    probabilities = model.predict(
+        X_test,
+        verbose=0,
+    )
 
-    predictions = (probabilities >= 0.5).astype(int)
+    predictions = (
+        probabilities >= 0.5
+    ).astype(int)
 
     # -----------------------------
-    # Metrics
+    # Evaluation Metrics
     # -----------------------------
 
-    accuracy = accuracy_score(y_test, predictions)
-    precision = precision_score(y_test, predictions)
-    recall = recall_score(y_test, predictions)
-    f1 = f1_score(y_test, predictions)
+    accuracy = accuracy_score(
+        y_test,
+        predictions,
+    )
+
+    precision = precision_score(
+        y_test,
+        predictions,
+    )
+
+    recall = recall_score(
+        y_test,
+        predictions,
+    )
+
+    f1 = f1_score(
+        y_test,
+        predictions,
+    )
+
+    fpr, tpr, _ = roc_curve(
+        y_test,
+        probabilities,
+    )
+
+    roc_auc = auc(
+        fpr,
+        tpr,
+    )
 
     print("\nEvaluation Results")
     print("-" * 35)
@@ -78,17 +116,34 @@ def evaluate_model(model, X_test, y_test):
     print(f"Precision: {precision:.4f}")
     print(f"Recall   : {recall:.4f}")
     print(f"F1 Score : {f1:.4f}")
+    print(f"ROC-AUC  : {roc_auc:.4f}")
+
+    # -----------------------------
+    # Save Metrics
+    # -----------------------------
 
     metrics = {
+        "model": "LSTM",
+        "dataset_size": len(X_train) + len(X_test),
+        "train_samples": len(X_train),
+        "test_samples": len(X_test),
+        "epochs": EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "vocabulary_size": MAX_VOCAB_SIZE,
+        "max_sequence_length": MAX_SEQUENCE_LENGTH,
         "accuracy": float(accuracy),
         "precision": float(precision),
         "recall": float(recall),
         "f1_score": float(f1),
+        "roc_auc": float(roc_auc),
     }
 
     save_json(
         metrics,
-        os.path.join(EVALUATION_DIR, "metrics.json"),
+        os.path.join(
+            EVALUATION_DIR,
+            "metrics.json",
+        ),
     )
 
     # -----------------------------
@@ -98,7 +153,10 @@ def evaluate_model(model, X_test, y_test):
     report = classification_report(
         y_test,
         predictions,
-        target_names=["Legitimate", "Phishing"],
+        target_names=[
+            "Legitimate",
+            "Phishing",
+        ],
     )
 
     report_path = os.path.join(
@@ -106,7 +164,10 @@ def evaluate_model(model, X_test, y_test):
         "classification_report.txt",
     )
 
-    with open(report_path, "w") as file:
+    with open(
+        report_path,
+        "w",
+    ) as file:
         file.write(report)
 
     print("\nClassification Report")
@@ -117,17 +178,22 @@ def evaluate_model(model, X_test, y_test):
     # Confusion Matrix
     # -----------------------------
 
-    cm = confusion_matrix(y_test, predictions)
+    cm = confusion_matrix(
+        y_test,
+        predictions,
+    )
 
     disp = ConfusionMatrixDisplay(
         confusion_matrix=cm,
-        display_labels=["Legitimate", "Phishing"],
+        display_labels=[
+            "Legitimate",
+            "Phishing",
+        ],
     )
 
     disp.plot(cmap="Blues")
 
     plt.title("Confusion Matrix")
-
     plt.tight_layout()
 
     plt.savefig(
@@ -142,13 +208,6 @@ def evaluate_model(model, X_test, y_test):
     # -----------------------------
     # ROC Curve
     # -----------------------------
-
-    fpr, tpr, _ = roc_curve(
-        y_test,
-        probabilities
-    )
-
-    roc_auc = auc(fpr, tpr)
 
     plt.figure(figsize=(6, 6))
 
@@ -180,19 +239,21 @@ def evaluate_model(model, X_test, y_test):
 
     plt.close()
 
-    print(f"ROC-AUC : {roc_auc:.4f}")
-
     print("\nEvaluation files saved successfully.")
 
 
 def main():
+    """
+    Main function.
+    """
 
     create_directory(EVALUATION_DIR)
 
-    model, X_test, y_test = load_data()
+    model, X_train, X_test, y_test = load_data()
 
     evaluate_model(
         model,
+        X_train,
         X_test,
         y_test,
     )
