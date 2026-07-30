@@ -32,3 +32,23 @@ data/raw/
 
 # Processed datasets
 data/processed/
+# ===========================
+# Datasets
+# ===========================
+data/raw/
+data/processed/
+
+# ===========================
+# Trained Models
+# ===========================
+models/*.keras
+models/*.h5
+models/*.pkl
+
+# ===========================
+# Evaluation Outputs
+# ===========================
+evaluation/*.png
+evaluation/*.pkl
+evaluation/*.json
+evaluation/*.txt

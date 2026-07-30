@@ -167,3 +167,30 @@ The processed dataset is converted into numerical sequences suitable for the LST
 
 ### Generated Files
 ```
+## Phase 4 – LSTM Model Training
+
+The phishing email classifier was implemented using an LSTM neural network.
+
+### Model Architecture
+
+- Embedding Layer
+- LSTM Layer (128 units)
+- Dropout Layer (0.5)
+- Dense Layer (64 neurons, ReLU)
+- Output Layer (1 neuron, Sigmoid)
+
+### Training Configuration
+
+- Optimizer: Adam
+- Loss Function: Binary Crossentropy
+- Batch Size: 32
+- Epochs: 10
+- Early Stopping (patience = 2)
+
+### Outputs
+
+- Trained model (`models/lstm_model.keras`)
+- Training history
+- Accuracy graph
+- Loss graph
+```

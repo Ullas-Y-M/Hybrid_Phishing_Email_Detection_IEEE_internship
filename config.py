@@ -6,6 +6,7 @@ PROJECT_NAME = "Hybrid Phishing Email Detection"
 RAW_DATA_DIR = "data/raw"
 PROCESSED_DATA_DIR = "data/processed"
 MODELS_DIR = "models"
+EVALUATION_DIR = "evaluation"
 
 # -----------------------------
 # Dataset
@@ -30,3 +31,8 @@ LSTM_UNITS = 128
 # -----------------------------
 BATCH_SIZE = 32
 EPOCHS = 10
+# -----------------------------
+# Output Files
+# -----------------------------
+MODEL_NAME = "lstm_model.keras"
+HISTORY_NAME = "history.pkl"
