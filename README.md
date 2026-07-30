@@ -194,3 +194,45 @@ The phishing email classifier was implemented using an LSTM neural network.
 - Accuracy graph
 - Loss graph
 ```
+## Phase 5 – LSTM Model Evaluation
+
+The trained LSTM model was evaluated on the unseen test dataset to measure its performance in phishing email detection.
+
+### Evaluation Process
+
+- Loaded the trained LSTM model.
+- Loaded the testing dataset (`X_test.npy` and `y_test.npy`).
+- Generated predictions for all test emails.
+- Calculated standard machine learning evaluation metrics.
+- Generated the confusion matrix and ROC curve.
+- Saved the evaluation reports and metrics.
+
+### Evaluation Metrics
+
+| Metric | Value |
+|--------|-------:|
+| Accuracy | **99.00%** |
+| Precision | **99.49%** |
+| Recall | **98.50%** |
+| F1-Score | **98.99%** |
+| ROC-AUC | **99.11%** |
+
+### Generated Evaluation Files
+
+```
+evaluation/
+├── accuracy.png
+├── loss.png
+├── confusion_matrix.png
+├── roc_curve.png
+├── classification_report.txt
+├── history.pkl
+└── metrics.json
+```
+
+### Summary
+
+The LSTM model achieved excellent performance on the balanced phishing email dataset, correctly classifying approximately **99%** of the test emails. The high precision and recall indicate that the model is highly effective at distinguishing phishing emails from legitimate emails while maintaining a low false positive and false negative rate.
+
+The trained LSTM model serves as the primary text classification component of the hybrid phishing email detection framework. In the next phase, a **Sentiment-Aware Risk Analyzer** will be developed using a classical machine learning approach to detect psychological manipulation and social engineering patterns. The outputs of both models will later be combined to improve the overall robustness of the phishing detection system.
+```
