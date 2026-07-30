@@ -92,3 +92,58 @@ Hybrid_Phishing_Email_Detection_IEEE_internship/
 - **tests/** – Contains unit tests.
 - **docs/** – Project documentation and architecture diagrams.
 - **config.py** – Central configuration file for model parameters and project settings.
+```
+## Project Organization
+
+The project follows a modular architecture to separate datasets, source code, trained models, documentation, notebooks, and evaluation artifacts.
+
+### Folder Structure
+
+- `data/raw/` – Original email datasets.
+- `data/processed/` – Cleaned and preprocessed datasets.
+- `data/external/` – Additional datasets collected during development.
+- `src/` – Source code for preprocessing, model training, and prediction.
+- `models/` – Saved machine learning models and tokenizers.
+- `evaluation/` – Evaluation scripts, metrics, and visualizations.
+- `notebooks/` – Jupyter notebooks for experiments.
+- `tests/` – Unit tests.
+- `docs/` – Documentation and project reports.
+```
+## Dataset Statistics
+
+| Dataset | Samples |
+|----------|---------:|
+| Enron (Original) | 517,401 |
+| Nigerian Fraud (Original) | 3,332 |
+
+For model training, a balanced dataset will be created by randomly sampling 3,000 legitimate emails from the Enron dataset and 3,000 phishing emails from the Nigerian Fraud dataset, resulting in a final dataset of 6,000 emails.
+```
+## Data Preprocessing
+
+The preprocessing pipeline performs the following steps:
+
+1. Load the Enron Email Dataset and Nigerian Fraud Dataset.
+2. Combine the email subject and body into a single text field.
+3. Clean the email text by:
+   - Removing HTML tags
+   - Removing URLs
+   - Removing email addresses
+   - Removing special characters
+   - Converting text to lowercase
+   - Removing extra whitespace
+4. Remove empty emails.
+5. Randomly sample 3,000 legitimate and 3,000 phishing emails.
+6. Merge and shuffle the datasets.
+7. Save the processed dataset to:
+
+```
+data/processed/phishing_dataset.csv
+```
+
+### Final Dataset
+
+| Class | Samples |
+|--------|---------:|
+| Legitimate | 3000 |
+| Phishing | 3000 |
+| **Total** | **6000** |

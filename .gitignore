@@ -27,3 +27,8 @@ Thumbs.db
 
 # Logs
 *.log
+# Raw datasets
+data/raw/
+
+# Processed datasets
+data/processed/
