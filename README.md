@@ -671,3 +671,91 @@ It identifies observable social-engineering cues in an email but does **not** ex
 
 Therefore, the explanation should be interpreted as complementary contextual information rather than a causal explanation of the neural network prediction.
 ```
+## Phase 10 – Streamlit Web Application
+
+A Streamlit-based web interface was developed to provide an interactive demonstration of the hybrid phishing email detection framework.
+
+The application uses the existing inference pipeline without modifying the trained models, fusion weights, or classification threshold.
+
+### Features
+
+The web application allows users to:
+
+- Paste email content for analysis
+- Obtain the final phishing or legitimate prediction
+- View the LSTM phishing probability (P1)
+- View the sentiment-aware risk probability (P2)
+- View the final hybrid probability
+- View the overall risk rating
+- Identify social-engineering indicators
+- View matched suspicious phrases
+- Receive a human-readable explanation of detected risk indicators
+
+### Running the Application
+
+From the project root directory:
+
+```bash
+streamlit run app.py
+```
+
+The application loads the trained model resources and launches the phishing detection interface in a web browser.
+
+### Prediction Architecture
+
+```text
+                    Email Input
+                        |
+                        v
+                 Text Preprocessing
+                        |
+              +---------+---------+
+              |                   |
+              v                   v
+         LSTM Model         TF-IDF + NB
+              |                   |
+              v                   v
+             P1                  P2
+              |                   |
+              +---------+---------+
+                        |
+                        v
+             P_final = 0.60P1 + 0.40P2
+                        |
+                        v
+                Final Prediction
+                        |
+              +---------+---------+
+              |                   |
+              v                   v
+         Risk Rating       Explainability
+                                  |
+                                  v
+                        Social-Engineering
+                           Indicators
+```
+
+### Model Loading
+
+Streamlit's resource caching is used to load the trained models once and reuse them across application interactions.
+
+This prevents the LSTM model, tokenizer, Naive Bayes model, and TF-IDF vectorizer from being unnecessarily reloaded whenever the interface refreshes.
+
+### Final Experimental Performance
+
+The application uses the final validated hybrid configuration:
+
+| Metric | Result |
+|---|---:|
+| Accuracy | 99.22% |
+| Precision | 99.55% |
+| Recall | 98.89% |
+| F1-Score | 99.22% |
+| ROC-AUC | 99.96% |
+
+The reported performance corresponds to the held-out 900-email final test partition used during the experimental evaluation.
+
+### Usage Note
+
+The application is intended as a research prototype. Predictions should not be treated as a replacement for comprehensive production email-security systems, particularly for phishing styles that differ substantially from the training distribution.
+```
