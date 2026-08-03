@@ -44,3 +44,19 @@ SENTIMENT_MODEL_NAME = "sentiment_nb.pkl"
 TFIDF_VECTORIZER_NAME = "tfidf_vectorizer.pkl"
 
 TFIDF_MAX_FEATURES = 10000
+# -----------------------------
+# Hybrid Model
+# -----------------------------
+HYBRID_THRESHOLD = 0.5
+
+LSTM_WEIGHT = 0.60
+RISK_WEIGHT = 0.40
+# -----------------------------
+# Dataset Split
+# -----------------------------
+
+TRAIN_SIZE = 0.70
+VALIDATION_SIZE = 0.15
+TEST_SIZE = 0.15
+
+RANDOM_STATE = 42

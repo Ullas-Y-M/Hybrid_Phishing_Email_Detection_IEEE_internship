@@ -1,10 +1,15 @@
 import os
-from src.utils import create_directory, save_pickle
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
+from tensorflow.keras.layers import (
+    Embedding,
+    LSTM,
+    Dense,
+    Dropout,
+)
 from tensorflow.keras.callbacks import EarlyStopping
 
 from config import (
@@ -21,47 +26,92 @@ from config import (
     HISTORY_NAME,
 )
 
+from src.utils import (
+    create_directory,
+    save_pickle,
+)
 
 
 def load_data():
-    print("Loading training data...")
+    """
+    Load training and validation datasets.
+    """
 
-    X_train = np.load(os.path.join(PROCESSED_DATA_DIR, "X_train.npy"))
-    X_test = np.load(os.path.join(PROCESSED_DATA_DIR, "X_test.npy"))
+    print("Loading training and validation data...")
 
-    y_train = np.load(os.path.join(PROCESSED_DATA_DIR, "y_train.npy"))
-    y_test = np.load(os.path.join(PROCESSED_DATA_DIR, "y_test.npy"))
+    X_train = np.load(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "X_train.npy",
+        )
+    )
 
-    print(f"Training Shape : {X_train.shape}")
-    print(f"Testing Shape  : {X_test.shape}")
+    y_train = np.load(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "y_train.npy",
+        )
+    )
 
-    return X_train, X_test, y_train, y_test
+    X_val = np.load(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "X_val.npy",
+        )
+    )
+
+    y_val = np.load(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "y_val.npy",
+        )
+    )
+
+    print(f"Training Shape   : {X_train.shape}")
+    print(f"Validation Shape : {X_val.shape}")
+
+    return X_train, y_train, X_val, y_val
 
 
 def build_model():
+    """
+    Build the LSTM phishing classification model.
+    """
 
     print("\nBuilding LSTM Model...")
 
-    model = Sequential([
-        Embedding(
-            input_dim=MAX_VOCAB_SIZE,
-            output_dim=EMBEDDING_DIM,
-            input_length=MAX_SEQUENCE_LENGTH
-        ),
+    model = Sequential(
+        [
+            Embedding(
+                input_dim=MAX_VOCAB_SIZE,
+                output_dim=EMBEDDING_DIM,
+                input_length=MAX_SEQUENCE_LENGTH,
+            ),
 
-        LSTM(LSTM_UNITS),
+            LSTM(
+                LSTM_UNITS
+            ),
 
-        Dropout(0.5),
+            Dropout(
+                0.5
+            ),
 
-        Dense(64, activation="relu"),
+            Dense(
+                64,
+                activation="relu",
+            ),
 
-        Dense(1, activation="sigmoid")
-    ])
+            Dense(
+                1,
+                activation="sigmoid",
+            ),
+        ]
+    )
 
     model.compile(
         optimizer="adam",
         loss="binary_crossentropy",
-        metrics=["accuracy"]
+        metrics=["accuracy"],
     )
 
     model.summary()
@@ -69,94 +119,193 @@ def build_model():
     return model
 
 
-def train_model(model, X_train, y_train):
+def train_model(
+    model,
+    X_train,
+    y_train,
+    X_val,
+    y_val,
+):
+    """
+    Train the LSTM using the dedicated validation set.
+    """
 
     print("\nTraining Started...")
 
-    early_stop = EarlyStopping(
+    early_stopping = EarlyStopping(
         monitor="val_loss",
         patience=2,
-        restore_best_weights=True
+        restore_best_weights=True,
+        verbose=1,
     )
 
     history = model.fit(
         X_train,
         y_train,
-        validation_split=0.2,
+        validation_data=(
+            X_val,
+            y_val,
+        ),
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        callbacks=[early_stop],
-        verbose=1
+        callbacks=[
+            early_stopping
+        ],
+        verbose=1,
     )
 
     return history
 
 
-def save_outputs(model, history):
+def save_model_and_history(
+    model,
+    history,
+):
+    """
+    Save the trained LSTM model and training history.
+    """
 
     create_directory(MODELS_DIR)
     create_directory(EVALUATION_DIR)
 
+    model_path = os.path.join(
+        MODELS_DIR,
+        MODEL_NAME,
+    )
+
+    model.save(
+        model_path
+    )
+
+    history_path = os.path.join(
+        EVALUATION_DIR,
+        HISTORY_NAME,
+    )
+
     save_pickle(
         history.history,
-        os.path.join(EVALUATION_DIR, HISTORY_NAME)
-   )
+        history_path,
+    )
 
-    print("\nModel Saved Successfully")
+    print(
+        "\nModel Saved Successfully"
+    )
+
+    print(
+        f"Model path: {model_path}"
+    )
 
 
-def plot_history(history):
+def save_training_graphs(history):
+    """
+    Save training and validation accuracy/loss graphs.
+    """
 
-    accuracy = history.history["accuracy"]
-    val_accuracy = history.history["val_accuracy"]
+    create_directory(EVALUATION_DIR)
 
-    loss = history.history["loss"]
-    val_loss = history.history["val_loss"]
+    # -----------------------------
+    # Accuracy Graph
+    # -----------------------------
 
-    # Accuracy
+    plt.figure(figsize=(8, 5))
 
-    plt.figure(figsize=(8,5))
-    plt.plot(accuracy, label="Training Accuracy")
-    plt.plot(val_accuracy, label="Validation Accuracy")
+    plt.plot(
+        history.history["accuracy"],
+        label="Training Accuracy",
+    )
+
+    plt.plot(
+        history.history["val_accuracy"],
+        label="Validation Accuracy",
+    )
+
     plt.xlabel("Epoch")
     plt.ylabel("Accuracy")
-    plt.title("Training Accuracy")
+    plt.title("LSTM Training and Validation Accuracy")
     plt.legend()
+
     plt.tight_layout()
 
-    plt.savefig(os.path.join(EVALUATION_DIR, "accuracy.png"))
+    plt.savefig(
+        os.path.join(
+            EVALUATION_DIR,
+            "accuracy.png",
+        )
+    )
+
     plt.close()
 
-    # Loss
+    # -----------------------------
+    # Loss Graph
+    # -----------------------------
 
-    plt.figure(figsize=(8,5))
-    plt.plot(loss, label="Training Loss")
-    plt.plot(val_loss, label="Validation Loss")
+    plt.figure(figsize=(8, 5))
+
+    plt.plot(
+        history.history["loss"],
+        label="Training Loss",
+    )
+
+    plt.plot(
+        history.history["val_loss"],
+        label="Validation Loss",
+    )
+
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
-    plt.title("Training Loss")
+    plt.title("LSTM Training and Validation Loss")
     plt.legend()
+
     plt.tight_layout()
 
-    plt.savefig(os.path.join(EVALUATION_DIR, "loss.png"))
+    plt.savefig(
+        os.path.join(
+            EVALUATION_DIR,
+            "loss.png",
+        )
+    )
+
     plt.close()
 
-    print("Training graphs saved.")
+    print(
+        "Training graphs saved."
+    )
 
 
 def main():
+    """
+    Main LSTM training pipeline.
+    """
 
-    X_train, X_test, y_train, y_test = load_data()
+    (
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+    ) = load_data()
 
     model = build_model()
 
-    history = train_model(model, X_train, y_train)
+    history = train_model(
+        model,
+        X_train,
+        y_train,
+        X_val,
+        y_val,
+    )
 
-    save_outputs(model, history)
+    save_model_and_history(
+        model,
+        history,
+    )
 
-    plot_history(history)
+    save_training_graphs(
+        history
+    )
 
-    print("\nPhase 4 Completed Successfully!")
+    print(
+        "\nLSTM retraining completed successfully!"
+    )
 
 
 if __name__ == "__main__":

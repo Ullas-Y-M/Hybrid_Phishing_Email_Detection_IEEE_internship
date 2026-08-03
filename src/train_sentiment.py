@@ -3,14 +3,7 @@ import os
 import pandas as pd
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-)
 
 from config import (
     PROCESSED_DATA_DIR,
@@ -18,9 +11,9 @@ from config import (
     SENTIMENT_MODEL_NAME,
     TFIDF_VECTORIZER_NAME,
     TFIDF_MAX_FEATURES,
-    TEST_SIZE,
-    RANDOM_STATE,
 )
+
+from src.sentiment_preprocessing import calculate_risk_features
 
 from src.utils import (
     create_directory,
@@ -28,52 +21,70 @@ from src.utils import (
 )
 
 
-def load_dataset():
+def create_risk_labels(df):
     """
-    Load the sentiment-aware risk dataset.
+    Generate weak/silver social-engineering risk labels
+    for the aligned training emails.
     """
 
-    dataset_path = os.path.join(
-        PROCESSED_DATA_DIR,
-        "sentiment_risk_dataset.csv",
+    print("\nGenerating risk labels for training data...")
+
+    risk_features = df["text"].apply(
+        calculate_risk_features
     )
 
-    print("Loading sentiment risk dataset...")
+    risk_features.columns = [
+        "urgency",
+        "fear",
+        "financial",
+        "credential",
+        "action",
+        "authority",
+        "risk_count",
+    ]
 
-    df = pd.read_csv(dataset_path)
+    df = pd.concat(
+        [
+            df.reset_index(drop=True),
+            risk_features.reset_index(drop=True),
+        ],
+        axis=1,
+    )
 
-    print(f"Dataset size: {len(df)}")
+    df["risk_label"] = (
+        df["risk_count"] >= 2
+    ).astype(int)
 
     return df
 
 
-def split_dataset(df):
+def load_training_data():
     """
-    Split the dataset into training and testing sets.
+    Load the exact 4200 emails used to train
+    the LSTM model.
     """
 
-    X = df["text"]
-    y = df["risk_label"]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y,
+    training_path = os.path.join(
+        PROCESSED_DATA_DIR,
+        "train_text.csv",
     )
 
-    print("\nDataset Split")
-    print("-" * 35)
-    print(f"Training samples: {len(X_train)}")
-    print(f"Testing samples : {len(X_test)}")
+    print("Loading aligned training dataset...")
 
-    return X_train, X_test, y_train, y_test
+    df = pd.read_csv(training_path)
+
+    df = df.dropna(
+        subset=["text", "label"]
+    ).reset_index(drop=True)
+
+    print(f"Training samples: {len(df)}")
+
+    return df
 
 
-def create_tfidf(X_train, X_test):
+def create_tfidf(X_train):
     """
-    Convert email text into TF-IDF features.
+    Fit TF-IDF using training emails only.
     """
 
     print("\nCreating TF-IDF features...")
@@ -84,31 +95,31 @@ def create_tfidf(X_train, X_test):
         sublinear_tf=True,
     )
 
-    X_train_tfidf = vectorizer.fit_transform(X_train)
-
-    X_test_tfidf = vectorizer.transform(X_test)
-
-    print(
-        f"TF-IDF training shape: {X_train_tfidf.shape}"
+    X_train_tfidf = vectorizer.fit_transform(
+        X_train
     )
 
     print(
-        f"TF-IDF testing shape : {X_test_tfidf.shape}"
+        f"TF-IDF training shape: "
+        f"{X_train_tfidf.shape}"
     )
 
-    return (
-        vectorizer,
-        X_train_tfidf,
-        X_test_tfidf,
+    return vectorizer, X_train_tfidf
+
+
+def train_model(
+    X_train_tfidf,
+    y_train,
+):
+    """
+    Train Multinomial Naive Bayes using
+    weak/silver social-engineering risk labels.
+    """
+
+    print(
+        "\nTraining Multinomial Naive Bayes "
+        "risk analyzer..."
     )
-
-
-def train_model(X_train_tfidf, y_train):
-    """
-    Train the Multinomial Naive Bayes risk analyzer.
-    """
-
-    print("\nTraining Multinomial Naive Bayes model...")
 
     model = MultinomialNB()
 
@@ -122,44 +133,10 @@ def train_model(X_train_tfidf, y_train):
     return model
 
 
-def evaluate_model(model, X_test_tfidf, y_test):
-    """
-    Perform an initial evaluation of the risk analyzer.
-    """
-
-    predictions = model.predict(
-        X_test_tfidf
-    )
-
-    accuracy = accuracy_score(
-        y_test,
-        predictions,
-    )
-
-    precision = precision_score(
-        y_test,
-        predictions,
-    )
-
-    recall = recall_score(
-        y_test,
-        predictions,
-    )
-
-    f1 = f1_score(
-        y_test,
-        predictions,
-    )
-
-    print("\nInitial Risk Analyzer Results")
-    print("-" * 35)
-    print(f"Accuracy : {accuracy:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall   : {recall:.4f}")
-    print(f"F1 Score : {f1:.4f}")
-
-
-def save_models(model, vectorizer):
+def save_models(
+    model,
+    vectorizer,
+):
     """
     Save the Naive Bayes model and TF-IDF vectorizer.
     """
@@ -187,39 +164,49 @@ def save_models(model, vectorizer):
     )
 
     print("\nModels saved successfully.")
-    print(f"Naive Bayes model : {model_path}")
-    print(f"TF-IDF vectorizer : {vectorizer_path}")
+
+    print(
+        f"Naive Bayes model : {model_path}"
+    )
+
+    print(
+        f"TF-IDF vectorizer : {vectorizer_path}"
+    )
 
 
 def main():
     """
-    Train the sentiment-aware risk analyzer.
+    Train the aligned sentiment-aware
+    social-engineering risk analyzer.
     """
 
-    df = load_dataset()
+    df = load_training_data()
 
-    X_train, X_test, y_train, y_test = split_dataset(
-        df
+    df = create_risk_labels(df)
+
+    print("\nTraining Risk Label Distribution")
+    print("-" * 40)
+
+    print(
+        df["risk_label"]
+        .value_counts()
+        .sort_index()
     )
+
+    X_train = df["text"]
+
+    y_train = df["risk_label"]
 
     (
         vectorizer,
         X_train_tfidf,
-        X_test_tfidf,
     ) = create_tfidf(
-        X_train,
-        X_test,
+        X_train
     )
 
     model = train_model(
         X_train_tfidf,
         y_train,
-    )
-
-    evaluate_model(
-        model,
-        X_test_tfidf,
-        y_test,
     )
 
     save_models(
@@ -228,7 +215,8 @@ def main():
     )
 
     print(
-        "\nPhase 6B completed successfully!"
+        "\nAligned sentiment-aware "
+        "risk model training completed successfully!"
     )
 
 

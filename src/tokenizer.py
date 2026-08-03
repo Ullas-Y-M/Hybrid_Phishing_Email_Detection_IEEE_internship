@@ -1,4 +1,5 @@
 import os
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -13,132 +14,474 @@ from config import (
     MODELS_DIR,
     MAX_VOCAB_SIZE,
     MAX_SEQUENCE_LENGTH,
+    VALIDATION_SIZE,
     TEST_SIZE,
     RANDOM_STATE,
 )
 
 
 def load_dataset():
-    """Load the processed phishing dataset."""
-    dataset_path = os.path.join(PROCESSED_DATA_DIR, "phishing_dataset.csv")
+    """
+    Load the processed phishing email dataset.
+    """
+
+    dataset_path = os.path.join(
+        PROCESSED_DATA_DIR,
+        "phishing_dataset.csv",
+    )
 
     print("Loading processed dataset...")
+
     df = pd.read_csv(dataset_path)
+
+    # Remove rows with missing text or labels if any exist
+    df = df.dropna(
+        subset=["text", "label"]
+    ).reset_index(drop=True)
+
+    print(f"Dataset size: {len(df)}")
 
     return df
 
 
 def split_dataset(df):
-    """Split dataset into train and test sets."""
+    """
+    Split the dataset into training, validation,
+    and testing sets.
 
-    X = df["text"]
-    y = df["label"]
+    Split:
+        70% Training
+        15% Validation
+        15% Testing
+    """
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y,
+    texts = df["text"]
+    labels = df["label"]
+
+    # --------------------------------------------------
+    # First split:
+    # 70% training
+    # 30% temporary (validation + testing)
+    # --------------------------------------------------
+
+    X_train_text, X_temp_text, y_train, y_temp = (
+        train_test_split(
+            texts,
+            labels,
+            test_size=(
+                VALIDATION_SIZE
+                + TEST_SIZE
+            ),
+            random_state=RANDOM_STATE,
+            stratify=labels,
+        )
     )
 
+    # --------------------------------------------------
+    # Second split:
+    # Divide temporary data into validation and test.
+    #
+    # With validation=0.15 and test=0.15,
+    # this becomes a 50/50 split of the temporary set.
+    # --------------------------------------------------
+
+    relative_test_size = (
+        TEST_SIZE
+        / (VALIDATION_SIZE + TEST_SIZE)
+    )
+
+    X_val_text, X_test_text, y_val, y_test = (
+        train_test_split(
+            X_temp_text,
+            y_temp,
+            test_size=relative_test_size,
+            random_state=RANDOM_STATE,
+            stratify=y_temp,
+        )
+    )
+
+    # Reset indices so text and labels remain
+    # explicitly aligned when saved.
+    X_train_text = X_train_text.reset_index(drop=True)
+    X_val_text = X_val_text.reset_index(drop=True)
+    X_test_text = X_test_text.reset_index(drop=True)
+
+    y_train = y_train.reset_index(drop=True)
+    y_val = y_val.reset_index(drop=True)
+    y_test = y_test.reset_index(drop=True)
+
     print("\nDataset Split")
-    print("-------------------------")
-    print(f"Training samples : {len(X_train)}")
-    print(f"Testing samples  : {len(X_test)}")
+    print("-" * 40)
 
-    return X_train, X_test, y_train, y_test
+    print(
+        f"Training samples   : {len(X_train_text)}"
+    )
+
+    print(
+        f"Validation samples : {len(X_val_text)}"
+    )
+
+    print(
+        f"Testing samples    : {len(X_test_text)}"
+    )
+
+    print("\nTraining Class Distribution")
+    print("-" * 40)
+    print(
+        y_train.value_counts().sort_index()
+    )
+
+    print("\nValidation Class Distribution")
+    print("-" * 40)
+    print(
+        y_val.value_counts().sort_index()
+    )
+
+    print("\nTesting Class Distribution")
+    print("-" * 40)
+    print(
+        y_test.value_counts().sort_index()
+    )
+
+    return (
+        X_train_text,
+        X_val_text,
+        X_test_text,
+        y_train,
+        y_val,
+        y_test,
+    )
 
 
-def create_tokenizer(X_train):
-    """Create and fit tokenizer."""
+def create_tokenizer(X_train_text):
+    """
+    Create and fit the tokenizer using ONLY
+    the training dataset.
+
+    Validation and test data must not be used
+    when learning the vocabulary.
+    """
+
+    print("\nCreating tokenizer...")
 
     tokenizer = Tokenizer(
         num_words=MAX_VOCAB_SIZE,
-        oov_token="<OOV>"
+        oov_token="<OOV>",
     )
 
-    tokenizer.fit_on_texts(X_train)
+    tokenizer.fit_on_texts(
+        X_train_text
+    )
 
-    print("\nTokenizer Created")
-    print("-------------------------")
-    print(f"Vocabulary Size: {len(tokenizer.word_index)}")
+    print(
+        f"Vocabulary learned from "
+        f"{len(X_train_text)} training emails."
+    )
+
+    print(
+        f"Total unique words found: "
+        f"{len(tokenizer.word_index)}"
+    )
 
     return tokenizer
 
 
-def convert_sequences(tokenizer, X_train, X_test):
-    """Convert text into padded sequences."""
+def convert_to_sequences(
+    tokenizer,
+    X_train_text,
+    X_val_text,
+    X_test_text,
+):
+    """
+    Convert training, validation and testing
+    email text into padded integer sequences.
+    """
 
-    train_sequences = tokenizer.texts_to_sequences(X_train)
-    test_sequences = tokenizer.texts_to_sequences(X_test)
+    print("\nConverting text to sequences...")
 
-    X_train_pad = pad_sequences(
+    train_sequences = tokenizer.texts_to_sequences(
+        X_train_text
+    )
+
+    val_sequences = tokenizer.texts_to_sequences(
+        X_val_text
+    )
+
+    test_sequences = tokenizer.texts_to_sequences(
+        X_test_text
+    )
+
+    X_train = pad_sequences(
         train_sequences,
         maxlen=MAX_SEQUENCE_LENGTH,
         padding="post",
         truncating="post",
     )
 
-    X_test_pad = pad_sequences(
+    X_val = pad_sequences(
+        val_sequences,
+        maxlen=MAX_SEQUENCE_LENGTH,
+        padding="post",
+        truncating="post",
+    )
+
+    X_test = pad_sequences(
         test_sequences,
         maxlen=MAX_SEQUENCE_LENGTH,
         padding="post",
         truncating="post",
     )
 
-    print("\nSequence Conversion Complete")
-    print("-------------------------")
-    print(f"Training Shape : {X_train_pad.shape}")
-    print(f"Testing Shape  : {X_test_pad.shape}")
+    print("\nSequence Shapes")
+    print("-" * 40)
 
-    return X_train_pad, X_test_pad
+    print(
+        f"Training shape   : {X_train.shape}"
+    )
 
+    print(
+        f"Validation shape : {X_val.shape}"
+    )
 
-def save_files(tokenizer, X_train, X_test, y_train, y_test):
-    """Save tokenizer and processed arrays."""
+    print(
+        f"Testing shape    : {X_test.shape}"
+    )
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
-
-    tokenizer_path = os.path.join(MODELS_DIR, "tokenizer.pkl")
-    joblib.dump(tokenizer, tokenizer_path)
-
-    np.save(os.path.join(PROCESSED_DATA_DIR, "X_train.npy"), X_train)
-    np.save(os.path.join(PROCESSED_DATA_DIR, "X_test.npy"), X_test)
-
-    np.save(os.path.join(PROCESSED_DATA_DIR, "y_train.npy"), y_train)
-
-    np.save(os.path.join(PROCESSED_DATA_DIR, "y_test.npy"), y_test)
-
-    print("\nFiles Saved Successfully")
-    print("-------------------------")
-    print(f"Tokenizer : {tokenizer_path}")
-    print(f"Arrays     : {PROCESSED_DATA_DIR}")
-
-
-def main():
-
-    df = load_dataset()
-
-    X_train, X_test, y_train, y_test = split_dataset(df)
-
-    tokenizer = create_tokenizer(X_train)
-
-    X_train_pad, X_test_pad = convert_sequences(
-        tokenizer,
+    return (
         X_train,
+        X_val,
         X_test,
     )
 
-    save_files(
+
+def save_arrays(
+    X_train,
+    X_val,
+    X_test,
+    y_train,
+    y_val,
+    y_test,
+):
+    """
+    Save tokenized datasets as NumPy arrays.
+    """
+
+    print("\nSaving NumPy datasets...")
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "X_train.npy",
+        ),
+        X_train,
+    )
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "X_val.npy",
+        ),
+        X_val,
+    )
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "X_test.npy",
+        ),
+        X_test,
+    )
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "y_train.npy",
+        ),
+        y_train.to_numpy(),
+    )
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "y_val.npy",
+        ),
+        y_val.to_numpy(),
+    )
+
+    np.save(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "y_test.npy",
+        ),
+        y_test.to_numpy(),
+    )
+
+    print("NumPy datasets saved successfully.")
+
+
+def save_text_splits(
+    X_train_text,
+    X_val_text,
+    X_test_text,
+    y_train,
+    y_val,
+    y_test,
+):
+    """
+    Save the exact text records used in each split.
+
+    These files allow the Naive Bayes risk analyzer
+    and LSTM model to operate on exactly the same
+    email records during hybrid fusion.
+    """
+
+    print("\nSaving aligned text datasets...")
+
+    train_df = pd.DataFrame(
+        {
+            "text": X_train_text,
+            "label": y_train,
+        }
+    )
+
+    validation_df = pd.DataFrame(
+        {
+            "text": X_val_text,
+            "label": y_val,
+        }
+    )
+
+    test_df = pd.DataFrame(
+        {
+            "text": X_test_text,
+            "label": y_test,
+        }
+    )
+
+    train_df.to_csv(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "train_text.csv",
+        ),
+        index=False,
+    )
+
+    validation_df.to_csv(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "validation_text.csv",
+        ),
+        index=False,
+    )
+
+    test_df.to_csv(
+        os.path.join(
+            PROCESSED_DATA_DIR,
+            "test_text.csv",
+        ),
+        index=False,
+    )
+
+    print("Aligned text datasets saved successfully.")
+
+
+def save_tokenizer(tokenizer):
+    """
+    Save the trained tokenizer.
+    """
+
+    os.makedirs(
+        MODELS_DIR,
+        exist_ok=True,
+    )
+
+    tokenizer_path = os.path.join(
+        MODELS_DIR,
+        "tokenizer.pkl",
+    )
+
+    joblib.dump(
         tokenizer,
-        X_train_pad,
-        X_test_pad,
+        tokenizer_path,
+    )
+
+    print(
+        f"\nTokenizer saved to: {tokenizer_path}"
+    )
+
+
+def main():
+    """
+    Run the complete tokenization and
+    dataset splitting pipeline.
+    """
+
+    df = load_dataset()
+
+    (
+        X_train_text,
+        X_val_text,
+        X_test_text,
         y_train,
+        y_val,
+        y_test,
+    ) = split_dataset(df)
+
+    tokenizer = create_tokenizer(
+        X_train_text
+    )
+
+    (
+        X_train,
+        X_val,
+        X_test,
+    ) = convert_to_sequences(
+        tokenizer,
+        X_train_text,
+        X_val_text,
+        X_test_text,
+    )
+
+    save_arrays(
+        X_train,
+        X_val,
+        X_test,
+        y_train,
+        y_val,
         y_test,
     )
 
-    print("\nPhase 3 Completed Successfully!")
+    save_text_splits(
+        X_train_text,
+        X_val_text,
+        X_test_text,
+        y_train,
+        y_val,
+        y_test,
+    )
+
+    save_tokenizer(
+        tokenizer
+    )
+
+    print("\nTokenization Complete")
+    print("-" * 40)
+
+    print(
+        f"Training data   : {X_train.shape}"
+    )
+
+    print(
+        f"Validation data : {X_val.shape}"
+    )
+
+    print(
+        f"Testing data    : {X_test.shape}"
+    )
+
+    print(
+        "\nPhase 7B data preparation completed successfully!"
+    )
 
 
 if __name__ == "__main__":
