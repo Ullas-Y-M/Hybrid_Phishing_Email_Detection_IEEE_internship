@@ -1,19 +1,19 @@
 import os
+import json
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
     recall_score,
     f1_score,
+    roc_auc_score,
     classification_report,
     confusion_matrix,
-    roc_curve,
-    auc,
     ConfusionMatrixDisplay,
+    roc_curve,
 )
 
 from config import (
@@ -22,104 +22,142 @@ from config import (
     EVALUATION_DIR,
     SENTIMENT_MODEL_NAME,
     TFIDF_VECTORIZER_NAME,
-    TEST_SIZE,
-    RANDOM_STATE,
-    TFIDF_MAX_FEATURES,
 )
 
-from src.utils import (
-    create_directory,
-    load_pickle,
-    save_json,
-)
+from src.sentiment_preprocessing import calculate_risk_features
+from src.utils import load_pickle
 
 
 def load_resources():
     """
-    Load the sentiment risk dataset,
-    Naive Bayes model, and TF-IDF vectorizer.
+    Load the aligned final test text, trained
+    Naive Bayes risk analyzer and TF-IDF vectorizer.
     """
 
-    print("Loading sentiment risk analyzer resources...")
+    print(
+        "Loading final sentiment-aware "
+        "risk analyzer resources..."
+    )
 
-    dataset_path = os.path.join(
+    test_path = os.path.join(
         PROCESSED_DATA_DIR,
-        "sentiment_risk_dataset.csv",
+        "test_text.csv",
     )
 
-    model_path = os.path.join(
-        MODELS_DIR,
-        SENTIMENT_MODEL_NAME,
+    test_df = pd.read_csv(
+        test_path
     )
 
-    vectorizer_path = os.path.join(
-        MODELS_DIR,
-        TFIDF_VECTORIZER_NAME,
+    test_df = test_df.dropna(
+        subset=["text"]
+    ).reset_index(drop=True)
+
+    risk_model = load_pickle(
+        os.path.join(
+            MODELS_DIR,
+            SENTIMENT_MODEL_NAME,
+        )
     )
 
-    df = pd.read_csv(dataset_path)
+    vectorizer = load_pickle(
+        os.path.join(
+            MODELS_DIR,
+            TFIDF_VECTORIZER_NAME,
+        )
+    )
 
-    model = load_pickle(model_path)
+    print(
+        f"Testing samples: {len(test_df)}"
+    )
 
-    vectorizer = load_pickle(vectorizer_path)
+    return (
+        test_df,
+        risk_model,
+        vectorizer,
+    )
 
-    print(f"Dataset size: {len(df)}")
 
-    return df, model, vectorizer
-
-
-def prepare_test_data(df, vectorizer):
+def create_test_risk_labels(test_df):
     """
-    Reproduce the same train-test split used during
-    sentiment model training and transform the test text
-    using the saved TF-IDF vectorizer.
+    Generate the same weak/silver risk labels used
+    when training the sentiment-aware analyzer.
     """
 
-    X = df["text"]
-    y = df["risk_label"]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=TEST_SIZE,
-        random_state=RANDOM_STATE,
-        stratify=y,
+    print(
+        "\nGenerating test risk labels..."
     )
 
-    X_test_tfidf = vectorizer.transform(X_test)
+    risk_features = test_df["text"].apply(
+        calculate_risk_features
+    )
 
-    print("\nEvaluation Dataset")
-    print("-" * 35)
-    print(f"Training samples: {len(X_train)}")
-    print(f"Testing samples : {len(X_test)}")
+    risk_features.columns = [
+        "urgency",
+        "fear",
+        "financial",
+        "credential",
+        "action",
+        "authority",
+        "risk_count",
+    ]
 
-    return X_train, X_test_tfidf, y_test
+    evaluation_df = pd.concat(
+        [
+            test_df.reset_index(drop=True),
+            risk_features.reset_index(drop=True),
+        ],
+        axis=1,
+    )
+
+    evaluation_df["risk_label"] = (
+        evaluation_df["risk_count"] >= 2
+    ).astype(int)
+
+    print("\nTest Risk Label Distribution")
+    print("-" * 40)
+
+    print(
+        evaluation_df["risk_label"]
+        .value_counts()
+        .sort_index()
+    )
+
+    return evaluation_df
 
 
-def evaluate_sentiment(
-    model,
-    X_train,
-    X_test_tfidf,
-    y_test,
+def evaluate_risk_model(
+    evaluation_df,
+    risk_model,
+    vectorizer,
 ):
     """
-    Evaluate the sentiment-aware risk analyzer.
+    Evaluate the sentiment-aware Naive Bayes model
+    against its social-engineering risk target.
     """
 
-    print("\nRunning risk predictions...")
-
-    predictions = model.predict(
-        X_test_tfidf
+    print(
+        "\nCreating TF-IDF features..."
     )
 
-    # Probability of risk class = 1
-    probabilities = model.predict_proba(
-        X_test_tfidf
+    X_test = vectorizer.transform(
+        evaluation_df["text"]
+    )
+
+    y_test = evaluation_df[
+        "risk_label"
+    ].to_numpy()
+
+    print(
+        "Running risk predictions..."
+    )
+
+    probabilities = risk_model.predict_proba(
+        X_test
     )[:, 1]
 
-    # ----------------------------------
-    # Metrics
-    # ----------------------------------
+    predictions = (
+        probabilities >= 0.5
+    ).astype(int)
 
     accuracy = accuracy_score(
         y_test,
@@ -129,68 +167,95 @@ def evaluate_sentiment(
     precision = precision_score(
         y_test,
         predictions,
+        zero_division=0,
     )
 
     recall = recall_score(
         y_test,
         predictions,
+        zero_division=0,
     )
 
     f1 = f1_score(
         y_test,
         predictions,
+        zero_division=0,
     )
 
-    fpr, tpr, _ = roc_curve(
+    roc_auc = roc_auc_score(
         y_test,
         probabilities,
     )
 
-    roc_auc = auc(
-        fpr,
-        tpr,
-    )
-
-    print("\nSentiment-Aware Risk Analyzer Results")
-    print("-" * 45)
-
-    print(f"Accuracy : {accuracy:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall   : {recall:.4f}")
-    print(f"F1 Score : {f1:.4f}")
-    print(f"ROC-AUC  : {roc_auc:.4f}")
-
-    # ----------------------------------
-    # Save Experiment Metrics
-    # ----------------------------------
-
     metrics = {
-        "model": "TF-IDF + Multinomial Naive Bayes",
-        "purpose": "Sentiment-Aware Social Engineering Risk Analysis",
-        "label_type": "weak/silver labels",
-        "dataset_size": len(X_train) + len(y_test),
-        "train_samples": len(X_train),
-        "test_samples": len(y_test),
-        "tfidf_max_features": TFIDF_MAX_FEATURES,
-        "risk_threshold": 2,
-        "accuracy": float(accuracy),
-        "precision": float(precision),
-        "recall": float(recall),
-        "f1_score": float(f1),
-        "roc_auc": float(roc_auc),
+        "model": (
+            "Multinomial Naive Bayes "
+            "Sentiment-Aware Risk Analyzer"
+        ),
+        "test_samples": int(
+            len(y_test)
+        ),
+        "target": (
+            "Weak/silver social-engineering risk label"
+        ),
+        "accuracy": float(
+            accuracy
+        ),
+        "precision": float(
+            precision
+        ),
+        "recall": float(
+            recall
+        ),
+        "f1_score": float(
+            f1
+        ),
+        "roc_auc": float(
+            roc_auc
+        ),
     }
 
-    save_json(
-        metrics,
-        os.path.join(
-            EVALUATION_DIR,
-            "sentiment_metrics.json",
-        ),
+    print(
+        "\nFinal Sentiment-Aware Risk Analyzer Results"
     )
 
-    # ----------------------------------
-    # Classification Report
-    # ----------------------------------
+    print("-" * 50)
+
+    print(
+        f"Accuracy : {accuracy:.4f}"
+    )
+
+    print(
+        f"Precision: {precision:.4f}"
+    )
+
+    print(
+        f"Recall   : {recall:.4f}"
+    )
+
+    print(
+        f"F1 Score : {f1:.4f}"
+    )
+
+    print(
+        f"ROC-AUC  : {roc_auc:.4f}"
+    )
+
+    return (
+        y_test,
+        probabilities,
+        predictions,
+        metrics,
+    )
+
+
+def save_classification_report(
+    y_test,
+    predictions,
+):
+    """
+    Save risk analyzer classification report.
+    """
 
     report = classification_report(
         y_test,
@@ -201,31 +266,40 @@ def evaluate_sentiment(
         ],
     )
 
-    report_path = os.path.join(
-        EVALUATION_DIR,
-        "sentiment_classification_report.txt",
+    print(
+        "\nClassification Report"
     )
 
-    with open(
-        report_path,
-        "w",
-    ) as file:
-        file.write(report)
+    print("-" * 50)
 
-    print("\nClassification Report")
-    print("-" * 45)
     print(report)
 
-    # ----------------------------------
-    # Confusion Matrix
-    # ----------------------------------
+    with open(
+        os.path.join(
+            EVALUATION_DIR,
+            "sentiment_classification_report.txt",
+        ),
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        file.write(report)
+
+
+def save_confusion_matrix(
+    y_test,
+    predictions,
+):
+    """
+    Save risk analyzer confusion matrix.
+    """
 
     cm = confusion_matrix(
         y_test,
         predictions,
     )
 
-    disp = ConfusionMatrixDisplay(
+    display = ConfusionMatrixDisplay(
         confusion_matrix=cm,
         display_labels=[
             "Lower Risk",
@@ -233,10 +307,11 @@ def evaluate_sentiment(
         ],
     )
 
-    disp.plot(cmap="Blues")
+    display.plot()
 
     plt.title(
-        "Sentiment-Aware Risk Analyzer\nConfusion Matrix"
+        "Sentiment-Aware Risk Analyzer "
+        "Confusion Matrix"
     )
 
     plt.tight_layout()
@@ -250,16 +325,36 @@ def evaluate_sentiment(
 
     plt.close()
 
-    # ----------------------------------
-    # ROC Curve
-    # ----------------------------------
 
-    plt.figure(figsize=(6, 6))
+def save_roc_curve(
+    y_test,
+    probabilities,
+):
+    """
+    Save risk analyzer ROC curve.
+    """
+
+    fpr, tpr, _ = roc_curve(
+        y_test,
+        probabilities,
+    )
+
+    auc = roc_auc_score(
+        y_test,
+        probabilities,
+    )
+
+    plt.figure(
+        figsize=(7, 6)
+    )
 
     plt.plot(
         fpr,
         tpr,
-        label=f"AUC = {roc_auc:.4f}",
+        label=(
+            f"Risk Analyzer "
+            f"(AUC={auc:.4f})"
+        ),
     )
 
     plt.plot(
@@ -268,8 +363,13 @@ def evaluate_sentiment(
         linestyle="--",
     )
 
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
+    plt.xlabel(
+        "False Positive Rate"
+    )
+
+    plt.ylabel(
+        "True Positive Rate"
+    )
 
     plt.title(
         "Sentiment-Aware Risk Analyzer ROC Curve"
@@ -288,38 +388,78 @@ def evaluate_sentiment(
 
     plt.close()
 
-    print(
-        "\nSentiment evaluation files saved successfully."
-    )
+
+def save_metrics(metrics):
+    """
+    Save final risk analyzer metrics.
+    """
+
+    with open(
+        os.path.join(
+            EVALUATION_DIR,
+            "sentiment_metrics.json",
+        ),
+        "w",
+        encoding="utf-8",
+    ) as file:
+
+        json.dump(
+            metrics,
+            file,
+            indent=4,
+        )
 
 
 def main():
-    """
-    Main evaluation pipeline.
-    """
 
-    create_directory(EVALUATION_DIR)
-
-    df, model, vectorizer = load_resources()
+    os.makedirs(
+        EVALUATION_DIR,
+        exist_ok=True,
+    )
 
     (
-        X_train,
-        X_test_tfidf,
+        test_df,
+        risk_model,
+        vectorizer,
+    ) = load_resources()
+
+    evaluation_df = create_test_risk_labels(
+        test_df
+    )
+
+    (
         y_test,
-    ) = prepare_test_data(
-        df,
+        probabilities,
+        predictions,
+        metrics,
+    ) = evaluate_risk_model(
+        evaluation_df,
+        risk_model,
         vectorizer,
     )
 
-    evaluate_sentiment(
-        model,
-        X_train,
-        X_test_tfidf,
+    save_classification_report(
         y_test,
+        predictions,
+    )
+
+    save_confusion_matrix(
+        y_test,
+        predictions,
+    )
+
+    save_roc_curve(
+        y_test,
+        probabilities,
+    )
+
+    save_metrics(
+        metrics
     )
 
     print(
-        "\nPhase 6C completed successfully!"
+        "\nFinal sentiment-aware evaluation "
+        "files saved successfully."
     )
 
 
