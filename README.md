@@ -236,3 +236,89 @@ The LSTM model achieved excellent performance on the balanced phishing email dat
 
 The trained LSTM model serves as the primary text classification component of the hybrid phishing email detection framework. In the next phase, a **Sentiment-Aware Risk Analyzer** will be developed using a classical machine learning approach to detect psychological manipulation and social engineering patterns. The outputs of both models will later be combined to improve the overall robustness of the phishing detection system.
 ```
+## Phase 6 – Sentiment-Aware Social Engineering Risk Analyzer
+
+A secondary risk-analysis component was developed to identify psychological manipulation and social-engineering patterns commonly found in phishing emails.
+
+Unlike the LSTM classifier, which directly predicts whether an email is legitimate or phishing, this component estimates the presence of manipulative language and produces a separate risk probability (P₂).
+
+### Psychological Risk Features
+
+The following social-engineering indicators are analyzed:
+
+- Urgency
+- Fear and threat language
+- Financial incentives or requests
+- Credential-related language
+- Action-oriented pressure
+- Authority-related language
+
+Emails containing two or more manipulation indicators are assigned a higher-risk weak label.
+
+> The risk labels used for this component are automatically generated weak/silver labels based on predefined psychological manipulation indicators rather than manually annotated sentiment labels.
+
+### Risk Dataset Distribution
+
+| Risk Category | Samples |
+|---|---:|
+| Lower Risk | 2,417 |
+| Higher Risk | 3,583 |
+| **Total** | **6,000** |
+
+### Risk Feature Frequency
+
+| Feature | Emails |
+|---|---:|
+| Urgency | 3,230 |
+| Fear | 284 |
+| Financial | 3,380 |
+| Credential | 225 |
+| Action | 3,138 |
+| Authority | 2,069 |
+
+### Model Architecture
+
+The sentiment-aware risk analyzer uses:
+
+- TF-IDF text vectorization
+- Maximum TF-IDF features: 10,000
+- Unigram and bigram features
+- Multinomial Naive Bayes classifier
+- 80:20 train-test split
+
+The model generates a probability representing the estimated social-engineering risk:
+
+P₂ = P(Higher Risk | Email)
+
+### Evaluation Results
+
+| Metric | Value |
+|---|---:|
+| Accuracy | **84.25%** |
+| Precision | **94.90%** |
+| Recall | **77.82%** |
+| F1-Score | **85.52%** |
+| ROC-AUC | **86.36%** |
+
+The high precision indicates that emails classified as higher risk are generally identified reliably according to the generated risk labels. The component is designed to complement the LSTM classifier rather than replace it.
+
+### Generated Models
+
+```text
+models/
+├── sentiment_nb.pkl
+└── tfidf_vectorizer.pkl
+```
+
+### Generated Evaluation Files
+
+```text
+evaluation/
+├── sentiment_metrics.json
+├── sentiment_classification_report.txt
+├── sentiment_confusion_matrix.png
+└── sentiment_roc_curve.png
+```
+
+The resulting risk probability P₂ will be combined with the LSTM phishing probability P₁ during the hybrid fusion phase.
+```

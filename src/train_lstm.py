@@ -1,5 +1,5 @@
 import os
-import joblib
+from src.utils import create_directory, save_pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -94,15 +94,13 @@ def train_model(model, X_train, y_train):
 
 def save_outputs(model, history):
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    os.makedirs(EVALUATION_DIR, exist_ok=True)
+    create_directory(MODELS_DIR)
+    create_directory(EVALUATION_DIR)
 
-    model.save(os.path.join(MODELS_DIR, MODEL_NAME))
-
-    joblib.dump(
+    save_pickle(
         history.history,
         os.path.join(EVALUATION_DIR, HISTORY_NAME)
-    )
+   )
 
     print("\nModel Saved Successfully")
 

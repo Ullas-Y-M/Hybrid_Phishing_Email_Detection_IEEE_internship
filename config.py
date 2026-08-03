@@ -36,3 +36,11 @@ EPOCHS = 10
 # -----------------------------
 MODEL_NAME = "lstm_model.keras"
 HISTORY_NAME = "history.pkl"
+# -----------------------------
+# Sentiment / Risk Analyzer
+# -----------------------------
+
+SENTIMENT_MODEL_NAME = "sentiment_nb.pkl"
+TFIDF_VECTORIZER_NAME = "tfidf_vectorizer.pkl"
+
+TFIDF_MAX_FEATURES = 10000

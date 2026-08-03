@@ -52,3 +52,5 @@ evaluation/*.png
 evaluation/*.pkl
 evaluation/*.json
 evaluation/*.txt
+evaluation/*.json
+evaluation/*.txt
