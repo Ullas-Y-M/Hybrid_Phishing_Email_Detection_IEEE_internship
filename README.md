@@ -579,3 +579,95 @@ For user-facing interpretation, the hybrid probability is mapped to the followin
 
 These categories are intended for presentation and interpretability and are not separately trained or validated risk classes.
 ```
+## Phase 9 – Explainability and Social-Engineering Risk Analysis
+
+An explainability layer was added to provide human-interpretable information about social-engineering cues present in an analyzed email.
+
+The explanation module operates independently of the trained LSTM and Naive Bayes classifiers and does not modify the final prediction.
+
+### Social-Engineering Indicators
+
+The system analyzes emails for six categories of potentially suspicious language:
+
+| Indicator | Description |
+|---|---|
+| Urgency | Language encouraging immediate action |
+| Fear / Threat | Threats, suspension warnings, penalties, or security warnings |
+| Financial Language | References to money, transfers, banking, prizes, or financial transactions |
+| Credential Request | Requests involving passwords, usernames, login information, or identity verification |
+| Action Request | Instructions to click, reply, verify, send, submit, or perform another action |
+| Authority / Impersonation | Language referring to organizations, officials, management, banks, or other authority figures |
+
+Pattern matching is performed on the original email text so that interpretable phrases can be displayed to the user.
+
+### Explainability Pipeline
+
+```text
+                     New Email
+                         |
+             +-----------+-----------+
+             |                       |
+             v                       v
+      Hybrid Detection       Explainability Layer
+             |                       |
+        P1 + P2 Fusion        Pattern Detection
+             |                       |
+             v                       v
+        Prediction          Social-Engineering
+                            Risk Indicators
+             |                       |
+             +-----------+-----------+
+                         |
+                         v
+                 Interpretable Result
+```
+
+### Example – Phishing Email
+
+A Nigerian-fraud style email produced:
+
+```text
+LSTM Phishing Probability (P1) : 0.9834
+Risk Probability (P2)          : 0.9981
+Hybrid Score                   : 0.9893
+
+Prediction                     : PHISHING
+Risk Rating                    : VERY HIGH
+Detected Indicator Categories  : 4
+```
+
+The explanation layer detected:
+
+```text
+Urgency                    : YES
+Financial Language         : YES
+Action Request             : YES
+Authority / Impersonation  : YES
+```
+
+Examples of matched phrases included terms related to immediate action, funds, bank transfers, beneficiaries, and replies.
+
+### Example – Legitimate Email
+
+A normal project meeting email produced:
+
+```text
+LSTM Phishing Probability (P1) : 0.0039
+Risk Probability (P2)          : 0.0306
+Hybrid Score                   : 0.0145
+
+Prediction                     : LEGITIMATE
+Risk Rating                    : LOW
+Detected Indicator Categories  : 0
+```
+
+No major social-engineering indicators were detected.
+
+### Important Interpretation
+
+The explainability module is a rule-based input analysis mechanism.
+
+It identifies observable social-engineering cues in an email but does **not** explain the internal reasoning or hidden representations learned by the LSTM model.
+
+Therefore, the explanation should be interpreted as complementary contextual information rather than a causal explanation of the neural network prediction.
+```
