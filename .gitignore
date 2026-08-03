@@ -38,12 +38,6 @@ data/processed/
 data/raw/
 data/processed/
 
-# ===========================
-# Trained Models
-# ===========================
-models/*.keras
-models/*.h5
-models/*.pkl
 
 # ===========================
 # Evaluation Outputs
@@ -54,3 +48,11 @@ evaluation/*.json
 evaluation/*.txt
 evaluation/*.json
 evaluation/*.txt
+#model files
+*.keras
+*.pkl
+# Allow final trained models required for deployment
+!models/lstm_model.keras
+!models/tokenizer.pkl
+!models/sentiment_nb.pkl
+!models/tfidf_vectorizer.pkl
