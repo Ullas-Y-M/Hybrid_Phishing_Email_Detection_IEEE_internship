@@ -1,6 +1,44 @@
 # Hybrid_Phishing_Email_Detection_IEEE_internship
 First time training a model 
 ```
+## 🚀 Live Demo
+
+The Hybrid Phishing Email Detection System is deployed as an interactive Streamlit web application.
+
+### 🔗 Try the Application
+
+**[Launch Hybrid Phishing Email Detector](https://hybrid-phishing-email-detector.streamlit.app/)**
+
+The application allows users to paste email content and receive:
+
+- LSTM phishing probability (P1)
+- Sentiment-aware risk probability (P2)
+- Final hybrid phishing score
+- Phishing / Legitimate classification
+- Risk rating
+- Social-engineering indicators
+- Matched suspicious phrases
+- Human-readable risk explanation
+
+> **Note:** The application is a research prototype developed as part of the IEEE Computer Society Bangalore Chapter Student Internship & Mentorship Program 2026. Predictions should not be considered a replacement for production-grade email security systems.
+```
+## 📊 Final System Performance
+
+The final hybrid framework was evaluated on an untouched test partition of 900 emails.
+
+| Metric | Score |
+|---|---:|
+| Accuracy | **99.22%** |
+| Precision | **99.55%** |
+| Recall | **98.89%** |
+| F1-Score | **99.22%** |
+| ROC-AUC | **99.96%** |
+
+The final hybrid configuration uses:
+
+```text
+Final Score = 0.60 × LSTM Probability
+            + 0.40 × Social-Engineering Risk Probability
 ## Project Setup
 
 ### Requirements
@@ -758,4 +796,56 @@ The reported performance corresponds to the held-out 900-email final test partit
 ### Usage Note
 
 The application is intended as a research prototype. Predictions should not be treated as a replacement for comprehensive production email-security systems, particularly for phishing styles that differ substantially from the training distribution.
+```
+### Cloud Deployment
+
+The final application has been deployed using Streamlit Community Cloud.
+
+**Live Application:**  
+[https://hybrid-phishing-email-detector.streamlit.app/](https://hybrid-phishing-email-detector.streamlit.app/)
+
+The deployment uses the same validated hybrid inference pipeline as the local application.
+
+For deployment compatibility, the trained LSTM model is loaded using the HDF5 model artifact while preserving the same trained architecture and weights.
+
+### Deployment Architecture
+
+```text
+GitHub Repository
+        |
+        v
+Streamlit Community Cloud
+        |
+        v
+      app.py
+        |
+        v
++---------------------------+
+|     Prediction Pipeline   |
++---------------------------+
+        |
+   +----+----+
+   |         |
+   v         v
+ LSTM       TF-IDF
+ Model        +
+  P1       Naive Bayes
+              P2
+   |         |
+   +----+----+
+        |
+        v
+  60/40 Hybrid Fusion
+        |
+        v
+ Final Classification
+        |
+        +-------------------+
+        |                   |
+        v                   v
+   Risk Rating       Explainability
+                            |
+                            v
+                  Social-Engineering
+                      Indicators
 ```
