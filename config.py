@@ -34,7 +34,7 @@ EPOCHS = 10
 # -----------------------------
 # Output Files
 # -----------------------------
-MODEL_NAME = "lstm_model.keras"
+MODEL_NAME = "lstm_model.h5"
 HISTORY_NAME = "history.pkl"
 # -----------------------------
 # Sentiment / Risk Analyzer

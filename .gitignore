@@ -53,6 +53,7 @@ evaluation/*.txt
 *.pkl
 # Allow final trained models required for deployment
 !models/lstm_model.keras
+!models/lstm_model.h5
 !models/tokenizer.pkl
 !models/sentiment_nb.pkl
 !models/tfidf_vectorizer.pkl
