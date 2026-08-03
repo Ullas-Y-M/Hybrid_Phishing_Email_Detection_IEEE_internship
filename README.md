@@ -470,3 +470,112 @@ evaluation/
 
 The final hybrid framework therefore combines sequential language modeling and sentiment-aware social-engineering analysis while maintaining high phishing detection performance.
 ```
+## Phase 8 – End-to-End Phishing Email Prediction
+
+An inference pipeline was implemented to allow the trained hybrid framework to analyze previously unseen email text.
+
+The prediction pipeline uses the same text preprocessing function used during model training to prevent inconsistencies between training-time and inference-time preprocessing.
+
+### Prediction Pipeline
+
+```text
+New Email
+    |
+    v
+Text Preprocessing
+    |
+    +-------------------+
+    |                   |
+    v                   v
+Tokenizer             TF-IDF
+    |                   |
+    v                   v
+LSTM Classifier    Naive Bayes Risk Analyzer
+    |                   |
+    v                   v
+P1                  P2
+    |                   |
+    +---------+---------+
+              |
+              v
+P_final = 0.60(P1) + 0.40(P2)
+              |
+              v
+      Classification Threshold
+              |
+       +------+------+
+       |             |
+       v             v
+  Legitimate      Phishing
+```
+
+### Running the Predictor
+
+From the project root directory:
+
+```bash
+python -m src.predict
+```
+
+The user can enter an email directly into the terminal. The system returns:
+
+- LSTM phishing probability (P1)
+- Social-engineering risk probability (P2)
+- Final hybrid probability
+- Binary phishing prediction
+- Human-readable risk category
+
+### Example – Phishing Email
+
+```text
+LSTM Phishing Probability (P1) : 0.9834
+Risk Probability (P2)          : 0.9981
+Hybrid Score                   : 0.9893
+
+Prediction                     : PHISHING
+Risk Rating                    : VERY HIGH
+```
+
+### Example – Legitimate Email
+
+```text
+LSTM Phishing Probability (P1) : 0.0039
+Risk Probability (P2)          : 0.0306
+Hybrid Score                   : 0.0145
+
+Prediction                     : LEGITIMATE
+Risk Rating                    : LOW
+```
+
+### Generalization Observation
+
+Manual testing showed that the model performs strongly on phishing patterns similar to those represented in the Nigerian Fraud training dataset.
+
+However, a credential-phishing example produced:
+
+```text
+P1 = 0.0307
+P2 = 0.8259
+P_final = 0.3488
+Prediction = LEGITIMATE
+```
+
+The sentiment-aware component identified substantial social-engineering risk, while the LSTM assigned a low phishing probability.
+
+This indicates a limitation in generalization to phishing styles that differ from the phishing distribution represented in the training dataset.
+
+Future work should therefore evaluate and train the framework using more diverse phishing categories, including credential phishing, account-verification attacks, impersonation, spear phishing, and modern URL-based phishing.
+
+### Risk Rating
+
+For user-facing interpretation, the hybrid probability is mapped to the following display categories:
+
+| Hybrid Score | Display Category |
+|---|---|
+| < 0.25 | Low |
+| 0.25 – < 0.50 | Moderate |
+| 0.50 – < 0.75 | High |
+| >= 0.75 | Very High |
+
+These categories are intended for presentation and interpretability and are not separately trained or validated risk classes.
+```
